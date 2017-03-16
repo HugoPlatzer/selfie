@@ -163,6 +163,12 @@ int* power_of_two_table;
 int INT_MAX; // maximum numerical value of a signed 32-bit integer
 int INT_MIN; // minimum numerical value of a signed 32-bit integer
 
+// the maximum values an integer can have so that after mulitplying
+// with 10 and adding the digit, no overflow larger than INT_MAX + 1
+// (which gets wrapped to INT_MIN) can happen
+int ATOI_MAX_DIV10 = 214748364;
+int ATOI_MAX_DIGIT10 = 8;
+
 int INT16_MAX; // maximum numerical value of a signed 16-bit integer
 int INT16_MIN; // minimum numerical value of a signed 16-bit integer
 
@@ -1435,25 +1441,39 @@ int atoi(int* s) {
     else if (c > 9)
       // c was not a decimal digit
       return -1;
-
-    // assert: s contains a decimal number, that is, with base 10
-    n = n * 10 + c;
+    
+    // if we have already hit INT_MIN and there are characters left,
+    // s must be too big
+    if (n < 0)
+      return -1;
+    
+    if (n < ATOI_MAX_DIV10) {
+      // n * 10 + c must be smaller than INT_MAX
+      n = n * 10 + c;
+    } else if (n == ATOI_MAX_DIV10) {
+      
+      if (c < ATOI_MAX_DIGIT10)
+        // n * 10 + c is at most INT_MAX
+        n = n * 10 + c;
+      else if (c == ATOI_MAX_DIGIT10)
+        // n * 10 + c is exactly INT_MAX + 1
+        // s represents abs(INT_MIN) unless there are more characters
+        n = INT_MIN;
+      else
+        // n * 10 + c must be larger than INT_MAX + 1
+        // s represents too large a number
+        return -1;
+        
+    } else {
+      // n * 10 + c must be larger than INT_MAX + 1
+      // s represents too large a number
+      return -1;
+    }
 
     // go to the next digit
     i = i + 1;
 
     c = loadCharacter(s, i);
-
-    if (n < 0) {
-      // the only negative number for n allowed here is INT_MIN
-      if (n != INT_MIN)
-        // but n is not INT_MIN which may happen because of an earlier
-        // integer overflow if the number in s is larger than INT_MAX
-        return -1;
-      else if (c != 0)
-        // n is INT_MIN but s is not terminated yet
-        return -1;
-    }
   }
 
   return n;
